@@ -1,0 +1,66 @@
+{
+	"jobConfig": {
+		"name": "iceberg-test2",
+		"description": "",
+		"role": "arn:aws:iam::361769601474:role/Glue-role-kishan",
+		"command": "glueetl",
+		"version": "6.0",
+		"currentGlueVersion": "",
+		"runtime": null,
+		"workerType": "G.1X",
+		"numberOfWorkers": 2,
+		"maxCapacity": 2,
+		"jobRunQueuingEnabled": false,
+		"maxRetries": 0,
+		"timeout": 480,
+		"maxConcurrentRuns": 1,
+		"security": "none",
+		"scriptName": "iceberg-test2.scala",
+		"scriptLocation": "s3://kishan-08-28/scripts/",
+		"language": "scala",
+		"spark": true,
+		"sparkConfiguration": "standard",
+		"jobParameters": [
+			{
+				"key": "--class",
+				"value": "GlueApp",
+				"existing": false
+			},
+			{
+				"key": "--conf",
+				"value": "spark.eventLog.rolling.enabled=true  --conf spark.sql.catalog.glue_catalog.glue.skip-name-validation=true --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog  --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog  --conf spark.sql.catalog.glue_catalog.warehouse=s3://kishan-08-28/icebergtables",
+				"existing": false
+			},
+			{
+				"key": "--datalake-formats",
+				"value": "iceberg",
+				"existing": false
+			}
+		],
+		"tags": [],
+		"jobMode": "DEVELOPER_MODE",
+		"createdOn": "2026-09-20T20:38:04.737Z",
+		"developerMode": true,
+		"connectionsList": [],
+		"temporaryDirectory": "s3://aws-glue-assets-361769601474-us-east-1/temporary/",
+		"logging": true,
+		"glueHiveMetastore": true,
+		"etlAutoTuning": true,
+		"metrics": true,
+		"observabilityMetrics": true,
+		"bookmark": "job-bookmark-disable",
+		"sparkPath": "s3://aws-glue-assets-361769601474-us-east-1/sparkHistoryLogs/",
+		"flexExecution": false,
+		"minFlexWorkers": null,
+		"sourceControlDetails": {
+			"Provider": "GITHUB",
+			"Repository": "glue-jobs",
+			"Branch": "",
+			"Folder": "ver1"
+		},
+		"maintenanceWindow": null
+	},
+	"hasBeenSaved": false,
+	"usageProfileName": null,
+	"script": "\r\nimport com.amazonaws.services.glue.GlueContext\r\nimport com.amazonaws.services.glue.util.GlueArgParser\r\nimport com.amazonaws.services.glue.util.Job\r\nimport org.apache.spark.SparkContext\r\nimport org.apache.spark.sql.SparkSession\r\nimport scala.collection.JavaConverters._\r\n\r\nobject GlueApp {\r\n \r\n  def main(sysArgs: Array[String]): Unit = {\r\n    val sc: SparkContext = new SparkContext()\r\n    val glueContext: GlueContext = new GlueContext(sc)\r\n    val spark: SparkSession = glueContext.getSparkSession\r\n\r\n    // Parse job arguments\r\n    val args = GlueArgParser.getResolvedOptions(sysArgs, Array(\"JOB_NAME\"))\r\n    Job.init(args(\"JOB_NAME\"), glueContext, args.asJava)\r\n\r\n    // Define database and table names\r\n    val database = \"testdb\"\r\n    val table = \"employees\"\r\n    val fullTable = s\"glue_catalog.$database.$table\"\r\n   // val fullTable = s\"$database.$table\"\r\n    \r\nval dropTable = s\"\"\"DROP table $fullTable\"\"\"\r\nspark.sql(dropTable)\r\n\r\nval createTable = s\"\"\"CREATE TABLE IF NOT EXISTS $fullTable (\r\n    employee_id BIGINT,\r\n    employee_name STRING,\r\n    employee_dept INTEGER,\r\n    employee_salary DOUBLE\r\n)\r\nLOCATION 's3://kishan-08-28/icebergtables/employee/'\r\nTBLPROPERTIES (\r\n    \"format-version\" = \"3\",\r\n    \"format\" = \"parquet\",\r\n    \"write_compression\" = \"zstd\"\r\n);\r\n\"\"\".stripMargin\r\n\r\nspark.sql(createTable)\r\n\r\n//val truncateTable =  s\"\"\"DELETE FROM $fullTable WHERE employee_id > 0;\"\"\".stripMargin\r\n//spark.sql(truncateTable)\r\n\r\nval inserRecords = s\"\"\"\r\nINSERT INTO $fullTable (employee_id, employee_name, employee_dept, employee_salary) VALUES\r\n(1001, 'Alice Smith', 10, 85000.50),\r\n(1002, 'Bob Jones', 20, 62000.00),\r\n(1003, 'Charlie Brown', 10, 95000.75),\r\n(1004, 'Diana Prince', 30, 110000.00),\r\n(1005, 'Evan Wright', 20, 58500.25),\r\n(1006, 'Fiona Gallagher', 40, 72000.00),\r\n(1007, 'George Clark', 30, 88000.90),\r\n(1008, 'Hannah Abbott', 10, 67000.00),\r\n(1009, 'Ian Malcolm', 40, 105000.50),\r\n(1010, 'Julia Roberts', 20, 79000.00);\r\n\"\"\"\r\n\r\nspark.sql(inserRecords)\r\n\r\nval select1 = s\"\"\"\r\nSELECT\r\n  _row_id, _last_updated_sequence_number,employee_id, employee_name, employee_dept, employee_salary\r\nFROM $fullTable\r\nWHERE _last_updated_sequence_number > 0\r\nORDER BY _row_id,  _last_updated_sequence_number;\r\n\"\"\".stripMargin\r\n\r\nvar df = spark.sql(select1)\r\ndf.show()\r\n\r\nval updateTable1 =  s\"\"\"update $fullTable set employee_dept =100 WHERE employee_dept = 10;\"\"\".stripMargin\r\n\r\nspark.sql(updateTable1)\r\n\r\n\r\ndf.show()\r\n\r\nval updateTable2 =  s\"\"\"update $fullTable set employee_dept =200 WHERE employee_dept = 20;\"\"\".stripMargin\r\n\r\nspark.sql(updateTable2)\r\n\r\ndf.show()\r\n\r\nval select2 = s\"\"\"\r\nSELECT snapshot_id, committed_at\r\nFROM $fullTable$snapshots\r\nORDER BY committed_at;\r\n\"\"\"\r\nvar df2 = spark.sql(select2)\r\ndf2.show()\r\n\r\n\r\n  }\r\n}\r\n\r\n\r\n\r\n"
+}

@@ -23,7 +23,7 @@ object GlueApp {
     val fullTable = s"glue_catalog.$database.$table"
    // val fullTable = s"$database.$table"
     
-val dropTable = s"""DROP table $fullTable"""
+val dropTable = s"""DROP TABLE IF EXISTS $fullTable"""
 spark.sql(dropTable)
 
 val createTable = s"""CREATE TABLE IF NOT EXISTS $fullTable (

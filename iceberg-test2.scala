@@ -22,7 +22,7 @@ object GlueApp {
     val table = "employees"
     val fullTable = s"glue_catalog.$database.$table"
    // val fullTable = s"$database.$table"
-    
+ /*   
 val dropTable = s"""DROP TABLE IF EXISTS $fullTable"""
 spark.sql(dropTable)
 
@@ -85,6 +85,13 @@ spark.sql(updateTable2)
 
 df.show()
 
+val deleteTable =  s"""DELETE FROM $fullTable WHERE employee_id = 1001;""".stripMargin
+
+spark.sql(deleteTable)
+
+df.show()
+*/
+
 val select2 = s"""
 SELECT snapshot_id, committed_at
 FROM $fullTable.snapshots
@@ -93,6 +100,22 @@ ORDER BY committed_at;
 var df2 = spark.sql(select2)
 df2.show(truncate=false)
 
+val select3 = s"""
+SELECT 1 AS snapshot, _row_id, _last_updated_sequence_number AS last_seq, employee_id, employee_name, employee_dept, employee_salary 
+FROM $fullTable FOR VERSION AS OF 2596093123477545646 WHERE _row_id = 0
+UNION ALL
+SELECT 2, _row_id, _last_updated_sequence_number, employee_id, employee_name, employee_dept, employee_salary
+FROM $fullTable FOR VERSION AS OF 2182114168470880228 WHERE _row_id = 0
+UNION ALL
+SELECT 3, _row_id, _last_updated_sequence_number, employee_id, employee_name, employee_dept, employee_salary
+FROM $fullTable FOR VERSION AS OF 7284231481358889154 WHERE _row_id = 0
+UNION ALL
+SELECT 4, _row_id, _last_updated_sequence_number, employee_id, employee_name, employee_dept, employee_salary
+FROM $fullTable FOR VERSION AS OF 3992329791812444946 WHERE _row_id = 0
+ORDER BY snapshot;
+"""
+var df3 = spark.sql(select3)
+df3.show(truncate=false)
 
   }
 }
